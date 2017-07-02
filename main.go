@@ -120,6 +120,7 @@ func amzSearch(accessKeyID, secretAccessKey, associateTag, region string, sleep 
 		}).Do()
 	time.Sleep(sleep)
 	if err != nil {
+		log.Printf("Error while searching: %s", err)
 		return nil
 	}
 	return &res.Items
