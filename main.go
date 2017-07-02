@@ -109,7 +109,7 @@ func main() {
 				break
 			}
 
-			for {
+			for itemPage <= 10 {
 				if exit {
 					break
 				}
