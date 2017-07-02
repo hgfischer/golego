@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"sort"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf"
 	"github.com/headzoo/surf/agent"
@@ -68,6 +70,8 @@ func main() {
 				amazon.ItemSearchResponseGroupItemAttributes,
 				amazon.ItemSearchResponseGroupItemIds,
 				amazon.ItemSearchResponseGroupOfferSummary,
+				amazon.ItemSearchResponseGroupOffers,
+				amazon.ItemSearchResponseGroupOfferListings,
 			},
 			ItemPage: itemPage,
 		}).Do()
@@ -84,9 +88,7 @@ func main() {
 
 			currItem++
 			fmt.Printf("Item %d of %d >> ", currItem, res.Items.TotalResults)
-
 			rec := newLegoItem(&item, bow)
-
 			w.Write(rec.Columns())
 			w.Flush()
 			printError(w.Error())
@@ -105,19 +107,22 @@ func main() {
 }
 
 type legoItem struct {
-	ASIN         string
-	Title        string
-	listPrice    string
-	ListPrice    float64
-	lowestPrice  string
-	LowestPrice  float64
-	parts        string
-	Parts        int
-	weight       string
-	WeightGrams  int
-	URL          string
-	PricePerPart float64
-	PricePerGram float64
+	ASIN               string
+	Title              string
+	IsEligibleForPrime bool
+	listPrice          string
+	ListPrice          float64
+	lowestPrice        string
+	LowestPrice        float64
+	primePrice         string
+	PrimePrice         float64
+	parts              string
+	Parts              int
+	weight             string
+	WeightGrams        int
+	PricePerPart       float64
+	PricePerGram       float64
+	URL                string
 }
 
 func newLegoItem(item *amazon.Item, bow *browser.Browser) *legoItem {
@@ -127,6 +132,44 @@ func newLegoItem(item *amazon.Item, bow *browser.Browser) *legoItem {
 		URL:         item.DetailPageURL,
 		listPrice:   item.ItemAttributes.ListPrice.Amount,
 		lowestPrice: item.OfferSummary.LowestNewPrice.Amount,
+	}
+
+	li.ListPrice, _ = strconv.ParseFloat(li.listPrice, 64)
+	li.ListPrice = li.ListPrice / float64(100)
+
+	li.LowestPrice, _ = strconv.ParseFloat(li.lowestPrice, 64)
+	li.LowestPrice = li.LowestPrice / float64(100)
+
+	li.Parts, _ = strconv.Atoi(li.parts)
+
+	if strings.Contains(li.weight, "Kg") {
+		w := strings.Replace(li.weight, ",", ".", -1)
+		w = strings.Replace(w, "Kg", "", -1)
+		w = strings.TrimSpace(w)
+		f, _ := strconv.ParseFloat(w, 32)
+		li.WeightGrams = int(f * 100)
+	} else if strings.Contains(li.weight, "g") {
+		w := strings.TrimSpace(strings.Replace(li.weight, "g", "", -1))
+		li.WeightGrams, _ = strconv.Atoi(w)
+	}
+
+	for _, offer := range item.Offers.Offer {
+		if offer.OfferListing.IsEligibleForPrime {
+			li.IsEligibleForPrime = true
+			li.primePrice = offer.OfferListing.Price.Amount
+			f, _ := strconv.Atoi(li.primePrice)
+			li.PrimePrice = float64(f) / 100.0
+			break
+		}
+	}
+
+	lowest := getLowest(li.ListPrice, li.PrimePrice, li.LowestPrice)
+
+	if li.Parts > 0 {
+		li.PricePerPart = lowest / float64(li.Parts)
+	}
+	if li.WeightGrams > 0 {
+		li.PricePerGram = lowest / float64(li.WeightGrams)
 	}
 
 	err := bow.Open(item.DetailPageURL)
@@ -152,40 +195,21 @@ func newLegoItem(item *amazon.Item, bow *browser.Browser) *legoItem {
 		}
 	}
 
-	li.ListPrice, _ = strconv.ParseFloat(li.listPrice, 64)
-	li.ListPrice = li.ListPrice / float64(100)
-
-	li.LowestPrice, _ = strconv.ParseFloat(li.lowestPrice, 64)
-	li.LowestPrice = li.LowestPrice / float64(100)
-
-	li.Parts, _ = strconv.Atoi(li.parts)
-
-	if strings.Contains(li.weight, "Kg") {
-		w := strings.Replace(li.weight, ",", ".", -1)
-		w = strings.Replace(w, "Kg", "", -1)
-		w = strings.TrimSpace(w)
-		f, _ := strconv.ParseFloat(w, 32)
-		li.WeightGrams = int(f * 100)
-	} else if strings.Contains(li.weight, "g") {
-		w := strings.TrimSpace(strings.Replace(li.weight, "g", "", -1))
-		li.WeightGrams, _ = strconv.Atoi(w)
-	}
-
-	if li.Parts > 0 {
-		li.PricePerPart = li.LowestPrice / float64(li.Parts)
-	}
-	if li.WeightGrams > 0 {
-		li.PricePerGram = li.LowestPrice / float64(li.WeightGrams)
-	}
-
 	return li
+}
+
+func getLowest(prices ...float64) float64 {
+	sort.Sort(sort.Reverse(sort.Float64Slice(prices)))
+	return prices[0]
 }
 
 func (li *legoItem) Headers() []string {
 	rec := []string{}
 	rec = append(rec, "ASIN")
 	rec = append(rec, "Title")
+	rec = append(rec, "Prime")
 	rec = append(rec, "List Price")
+	rec = append(rec, "Prime Price")
 	rec = append(rec, "Lowest Price")
 	rec = append(rec, "Parts")
 	rec = append(rec, "Weight (g)")
@@ -199,7 +223,9 @@ func (li *legoItem) Columns() []string {
 	rec := []string{}
 	rec = append(rec, li.ASIN)
 	rec = append(rec, li.Title)
+	rec = append(rec, fmt.Sprintf("%v", li.IsEligibleForPrime))
 	rec = append(rec, fmt.Sprintf("%.02f", li.ListPrice))
+	rec = append(rec, fmt.Sprintf("%.02f", li.PrimePrice))
 	rec = append(rec, fmt.Sprintf("%.02f", li.LowestPrice))
 	rec = append(rec, fmt.Sprintf("%d", li.Parts))
 	rec = append(rec, fmt.Sprintf("%.03f", li.PricePerPart))
