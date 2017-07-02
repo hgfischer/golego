@@ -13,6 +13,8 @@ import (
 
 	"sort"
 
+	"time"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf"
 	"github.com/headzoo/surf/agent"
@@ -76,8 +78,8 @@ func main() {
 			ItemPage: itemPage,
 		}).Do()
 		printError(err)
-		printError(res.Error())
 		if err != nil {
+			time.Sleep(5 * time.Second)
 			continue
 		}
 
