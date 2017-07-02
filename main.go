@@ -26,7 +26,7 @@ var (
 	secretAccessKey = app.Flag("secret-access-key", "AWS Secret Key").Required().String()
 	associateTag    = app.Flag("associate-tag", "Amazon Associate Tag").Required().String()
 	csvFile         = app.Arg("CSV", "Name of the CSV file to write").Required().OpenFile(
-		os.O_TRUNC|os.O_WRONLY, 0644)
+		os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 )
 
 func main() {
