@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/ngs/go-amazon-product-advertising-api/amazon"
@@ -25,9 +26,13 @@ type legoSet struct {
 
 func newLegoSet(num, name, year, parts string) *legoSet {
 	nYear, err := strconv.Atoi(year)
-	fatalize(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	nParts, err := strconv.Atoi(parts)
-	fatalize(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	set := &legoSet{
 		Num:   num,
 		Name:  name,
@@ -37,30 +42,34 @@ func newLegoSet(num, name, year, parts string) *legoSet {
 	return set
 }
 
-func (ls *legoSet) Fill(item *amazon.Item) {
+func (ls *legoSet) Fill(item *amazon.Item) *legoSet {
 	ls.ASIN = item.ASIN
 	ls.AmazonTitle = item.ItemAttributes.Title
 	ls.AmazonURL = item.DetailPageURL
 
 	listPrice, err := strconv.ParseFloat(item.ItemAttributes.ListPrice.Amount, 64)
-	fatalize(err)
-	ls.ListPrice = listPrice / 100.0
+	if err == nil {
+		ls.ListPrice = listPrice / 100.0
+	}
 
 	lowestPrice, err := strconv.ParseFloat(item.OfferSummary.LowestNewPrice.Amount, 64)
-	fatalize(err)
-	ls.LowestPrice = lowestPrice / 100.0
+	if err == nil {
+		ls.LowestPrice = lowestPrice / 100.0
+	}
 
 	for _, offer := range item.Offers.Offer {
 		if offer.OfferListing.IsEligibleForPrime {
 			ls.PrimeEligible = true
 			primePrice, err := strconv.ParseFloat(offer.OfferListing.Price.Amount, 64)
-			fatalize(err)
-			ls.PrimePrice = primePrice / 100.0
-			break
+			if err == nil {
+				ls.PrimePrice = primePrice / 100.0
+				break
+			}
 		}
 	}
 
 	ls.PricePerPart = ls.LowestPrice / float64(ls.Parts)
+	return ls
 }
 
 func (ls *legoSet) Headers() []string {
