@@ -106,12 +106,20 @@ func search(accessKeyID, secretAccessKey, associateTag, region string, sleep tim
 		log.Fatal(err)
 	}
 	setNum = strings.Replace(setNum, "-1", "", -1)
+	nameParts := strings.Split(setName, " ")
+	max := len(nameParts)
+	if max >= 3 {
+		max = 3
+	}
+	setName = strings.Join(nameParts[:max], " ")
+	keywords := fmt.Sprintf("LEGO %s %s", setNum, setName)
+
 	res, err := client.ItemSearch(
 		amazon.ItemSearchParameters{
 			OnlyAvailable: true,
 			Condition:     amazon.ConditionNew,
 			SearchIndex:   amazon.SearchIndexToys,
-			Keywords:      fmt.Sprintf("LEGO %s %s", setNum, setName),
+			Keywords:      keywords,
 			ResponseGroups: []amazon.ItemSearchResponseGroup{
 				amazon.ItemSearchResponseGroupItemAttributes,
 				amazon.ItemSearchResponseGroupItemIds,
@@ -123,7 +131,7 @@ func search(accessKeyID, secretAccessKey, associateTag, region string, sleep tim
 	if err != nil {
 		return nil
 	}
-	log.Printf("Found %d results for `LEGO %s %s`", res.Items.TotalResults, setNum, setName)
+	log.Printf("Found %d results for `%s`", res.Items.TotalResults, keywords)
 	time.Sleep(sleep)
 	return &(res.Items.Item[0])
 }
