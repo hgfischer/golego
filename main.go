@@ -70,7 +70,6 @@ func main() {
 			default:
 				set := newLegoSet(csvSet[0], csvSet[1], csvSet[2], csvSet[4])
 				if set.Year > *minYear && set.Parts > *minParts {
-					log.Printf("Searching for LEGO `%s` : `%s` of `%d`", set.Num, set.Name, set.Year)
 					item := search(*accessKeyID, *secretAccessKey, *associateTag, *amazonRegion,
 						*sleepDuration, set.Num, set.Name)
 					if item != nil {
@@ -99,21 +98,12 @@ func main() {
 	log.Println("DONE!")
 }
 
-func search(accessKeyID, secretAccessKey, associateTag, region string, sleep time.Duration,
-	setNum, setName string) *amazon.Item {
+func amzSearch(accessKeyID, secretAccessKey, associateTag, region string, sleep time.Duration, keywords string) *amazon.Items {
+	log.Printf("Searching for `%s`", keywords)
 	client, err := amazon.New(accessKeyID, secretAccessKey, associateTag, amazon.Region(region))
 	if err != nil {
 		log.Fatal(err)
 	}
-	setNum = strings.Replace(setNum, "-1", "", -1)
-	nameParts := strings.Split(setName, " ")
-	max := len(nameParts)
-	if max >= 3 {
-		max = 3
-	}
-	setName = strings.Join(nameParts[:max], " ")
-	keywords := fmt.Sprintf("LEGO %s %s", setNum, setName)
-
 	res, err := client.ItemSearch(
 		amazon.ItemSearchParameters{
 			OnlyAvailable: true,
@@ -131,7 +121,32 @@ func search(accessKeyID, secretAccessKey, associateTag, region string, sleep tim
 	if err != nil {
 		return nil
 	}
-	log.Printf("Found %d results for `%s`", res.Items.TotalResults, keywords)
 	time.Sleep(sleep)
-	return &(res.Items.Item[0])
+	return &res.Items
+}
+
+func search(accessKeyID, secretAccessKey, associateTag, region string, sleep time.Duration, setNum, setName string) *amazon.Item {
+	setNum = strings.Replace(setNum, "-1", "", -1)
+	nameParts := strings.Split(setName, " ")
+	max := len(nameParts)
+	if max >= 3 {
+		max = 3
+	}
+	setName = strings.Join(nameParts[:max], " ")
+
+	keywords := fmt.Sprintf("LEGO %s %s", setNum, setName)
+	items := amzSearch(accessKeyID, secretAccessKey, associateTag, region, sleep, keywords)
+	if items != nil {
+		log.Printf("Found %d results for `%s`", items.TotalResults, keywords)
+		return &(items.Item[0])
+	}
+
+	keywords = fmt.Sprintf("LEGO %s", setNum)
+	items = amzSearch(accessKeyID, secretAccessKey, associateTag, region, sleep, keywords)
+	if items != nil {
+		log.Printf("Found %d results for `%s`", items.TotalResults, keywords)
+		return &(items.Item[0])
+	}
+
+	return nil
 }
