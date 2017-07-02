@@ -32,6 +32,7 @@ var (
 	startPrice      = app.Flag("start-price", "Starting search price").Default("700").Int()
 	maxMinPrice     = app.Flag("max-min-price", "Maximum minimum price").Default("50000").Int()
 	priceIncrement  = app.Flag("price-increment", "Price increment").Default("100").Int()
+	sleepDuration   = app.Flag("sleep", "Secs between empty results calls, to avoid throttling").Default("1").Int()
 	csvFile         = app.Arg("CSV", "Name of the CSV file to write").Required().OpenFile(
 		os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 
@@ -164,7 +165,7 @@ func main() {
 					MaximumPrice: minPrice + *priceIncrement,
 				}).Do()
 				if err != nil {
-					time.Sleep(5 * time.Second)
+					time.Sleep(time.Duration(*sleepDuration) * time.Second)
 					if strings.Contains(err.Error(), "AWS.ECommerceService.NoExactMatches") {
 						fmt.Printf("Total Results: %d, Total Pages: %d\n\n", 0, 0)
 						break
