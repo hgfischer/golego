@@ -73,6 +73,9 @@ func main() {
 		}).Do()
 		printError(err)
 		printError(res.Error())
+		if err != nil {
+			continue
+		}
 
 		for _, item := range res.Items.Item {
 			if exit {
@@ -150,9 +153,11 @@ func newLegoItem(item *amazon.Item, bow *browser.Browser) *legoItem {
 	}
 
 	li.ListPrice, _ = strconv.ParseFloat(li.listPrice, 64)
-	li.ListPrice /= 100
+	li.ListPrice = li.ListPrice / float64(100)
+
 	li.LowestPrice, _ = strconv.ParseFloat(li.lowestPrice, 64)
-	li.LowestPrice /= 100
+	li.LowestPrice = li.LowestPrice / float64(100)
+
 	li.Parts, _ = strconv.Atoi(li.parts)
 
 	if strings.Contains(li.weight, "Kg") {
@@ -184,9 +189,9 @@ func (li *legoItem) Headers() []string {
 	rec = append(rec, "Lowest Price")
 	rec = append(rec, "Parts")
 	rec = append(rec, "Weight (g)")
-	rec = append(rec, "URL")
 	rec = append(rec, "Price/Part")
 	rec = append(rec, "Price/Gram")
+	rec = append(rec, "URL")
 	return rec
 }
 
@@ -197,7 +202,6 @@ func (li *legoItem) Columns() []string {
 	rec = append(rec, fmt.Sprintf("%.02f", li.ListPrice))
 	rec = append(rec, fmt.Sprintf("%.02f", li.LowestPrice))
 	rec = append(rec, fmt.Sprintf("%d", li.Parts))
-	rec = append(rec, fmt.Sprintf("%d", li.WeightGrams))
 	rec = append(rec, fmt.Sprintf("%.03f", li.PricePerPart))
 	rec = append(rec, fmt.Sprintf("%.03f", li.PricePerGram))
 	rec = append(rec, li.URL)
