@@ -7,6 +7,8 @@ import (
 	"path"
 	"strings"
 
+	"io"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf"
 	"github.com/headzoo/surf/agent"
@@ -33,8 +35,9 @@ func main() {
 	client, err := amazon.New(*accessKeyID, *secretAccessKey, *associateTag, amazon.RegionGermany)
 	fatalize(err)
 
-	w := csv.NewWriter(*csvFile)
+	w := csv.NewWriter(io.MultiWriter(os.Stderr, *csvFile))
 	w.Write((&legoItem{}).Headers())
+	defer (*csvFile).Close()
 
 	var bar *pb.ProgressBar
 
@@ -52,8 +55,8 @@ func main() {
 			},
 			ItemPage: itemPage,
 		}).Do()
-		fatalize(err)
-		fatalize(res.Error())
+		printError(err)
+		printError(res.Error())
 
 		if bar == nil {
 			bar = pb.StartNew(res.Items.TotalResults)
@@ -69,7 +72,7 @@ func main() {
 			}
 
 			err := bow.Open(item.DetailPageURL)
-			fatalize(err)
+			printError(err)
 
 			lastLabel := ""
 			kvs := map[string]string{}
@@ -120,6 +123,7 @@ type legoItem struct {
 
 func (li *legoItem) Headers() []string {
 	rec := []string{}
+	rec = append(rec, "ASIN")
 	rec = append(rec, "Title")
 	rec = append(rec, "List Price")
 	rec = append(rec, "Lowest Price")
@@ -131,6 +135,7 @@ func (li *legoItem) Headers() []string {
 
 func (li *legoItem) Columns() []string {
 	rec := []string{}
+	rec = append(rec, li.ASIN)
 	rec = append(rec, li.Title)
 	rec = append(rec, li.ListPrice)
 	rec = append(rec, li.LowestPrice)
@@ -138,6 +143,12 @@ func (li *legoItem) Columns() []string {
 	rec = append(rec, li.Weight)
 	rec = append(rec, li.URL)
 	return rec
+}
+
+func printError(err error) {
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func fatalize(err error) {
