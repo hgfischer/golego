@@ -118,10 +118,10 @@ func amzSearch(accessKeyID, secretAccessKey, associateTag, region string, sleep 
 				amazon.ItemSearchResponseGroupOfferListings,
 			},
 		}).Do()
+	time.Sleep(sleep)
 	if err != nil {
 		return nil
 	}
-	time.Sleep(sleep)
 	return &res.Items
 }
 
