@@ -29,8 +29,80 @@ var (
 	accessKeyID     = app.Flag("access-key-id", "AWS Access Key").Required().String()
 	secretAccessKey = app.Flag("secret-access-key", "AWS Secret Key").Required().String()
 	associateTag    = app.Flag("associate-tag", "Amazon Associate Tag").Required().String()
+	startPrice      = app.Flag("start-price", "Starting search price").Default("700").Int()
+	maxMinPrice     = app.Flag("max-min-price", "Maximum minimum price").Default("50000").Int()
+	priceIncrement  = app.Flag("price-increment", "Price increment").Default("100").Int()
 	csvFile         = app.Arg("CSV", "Name of the CSV file to write").Required().OpenFile(
 		os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
+
+	keywords = []string{
+		"101 Dalmatians",
+		"Action Man",
+		"Angry Birds",
+		"Aschenputtel",
+		"Asterix",
+		"Bakugan",
+		"Barbie",
+		"Batman",
+		"Ben 10",
+		"Benjamin the Elephant",
+		"Beyblade",
+		"Bionicle",
+		"Bob The Builder",
+		"Bolt",
+		"Calimero",
+		"Cars",
+		"Chuggington",
+		"Cinderella",
+		"Despicable Me",
+		"Dinosaurs",
+		"Disney",
+		"Disney Princess",
+		"Doc McStuffins",
+		"Doctor Who",
+		"Donald & Friends",
+		"Dora",
+		"Filly",
+		"GI Joe",
+		"Halo",
+		"Harry Potter",
+		"Hello Kitty",
+		"Indiana Jones",
+		"Jake and the Never Land Pirates",
+		"Kikaninchen",
+		"Kung Fu Panda",
+		"Little Mermaid",
+		"Lord of the Rings",
+		"Löwenzahn",
+		"Magic: The Gathering",
+		"Marvel",
+		"Masters of the Universe",
+		"Maulwurf",
+		"Maya the Bee",
+		"Mickey Mouse & Friends",
+		"Monster High",
+		"Monsters, Inc.",
+		"Masha and The Bear",
+		"Moshi Monsters",
+		"Nemo",
+		"Peanuts",
+		"Pippi Longstocking",
+		"City",
+		"Duplo",
+		"Construction Set",
+		"Technic",
+		"Vehicles",
+		"Vehicle",
+		"Creator",
+		"City",
+		"Train",
+		"Building site",
+		"3 in 1",
+		"Excavator",
+		"With remote control",
+		"Policeman",
+		"Architecture",
+	}
 )
 
 func main() {
@@ -55,51 +127,74 @@ func main() {
 		exit = true
 	}()
 
-	itemPage := 1
-	currItem := 0
-
-	for {
+	for _, keyword := range keywords {
 		if exit {
 			break
 		}
 
-		res, err := client.ItemSearch(amazon.ItemSearchParameters{
-			OnlyAvailable: true,
-			Condition:     amazon.ConditionNew,
-			SearchIndex:   amazon.SearchIndexToys,
-			Keywords:      "LEGO",
-			ResponseGroups: []amazon.ItemSearchResponseGroup{
-				amazon.ItemSearchResponseGroupItemAttributes,
-				amazon.ItemSearchResponseGroupItemIds,
-				amazon.ItemSearchResponseGroupOfferSummary,
-				amazon.ItemSearchResponseGroupOffers,
-				amazon.ItemSearchResponseGroupOfferListings,
-			},
-			ItemPage: itemPage,
-		}).Do()
-		printError(err)
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
-		}
-
-		for _, item := range res.Items.Item {
+		for minPrice := *startPrice; minPrice < *maxMinPrice; minPrice += *priceIncrement {
+			itemPage := 1
+			currItem := 0
 			if exit {
 				break
 			}
 
-			currItem++
-			fmt.Printf("Item %d of %d >> ", currItem, res.Items.TotalResults)
-			rec := newLegoItem(&item, bow)
-			w.Write(rec.Columns())
-			w.Flush()
-			printError(w.Error())
-		}
+			for {
+				if exit {
+					break
+				}
 
-		if res.Items.TotalPages > itemPage {
-			itemPage++
-		} else {
-			break
+				fmt.Printf("\nKeywords `LEGO %s`, Price range %d -> %d\n",
+					keyword, minPrice, minPrice+*priceIncrement)
+
+				res, err := client.ItemSearch(amazon.ItemSearchParameters{
+					OnlyAvailable: true,
+					Condition:     amazon.ConditionNew,
+					SearchIndex:   amazon.SearchIndexToys,
+					Keywords:      "LEGO " + keyword,
+					ResponseGroups: []amazon.ItemSearchResponseGroup{
+						amazon.ItemSearchResponseGroupItemAttributes,
+						amazon.ItemSearchResponseGroupItemIds,
+						amazon.ItemSearchResponseGroupOfferSummary,
+						amazon.ItemSearchResponseGroupOffers,
+						amazon.ItemSearchResponseGroupOfferListings,
+					},
+					ItemPage:     itemPage,
+					MinimumPrice: minPrice,
+					MaximumPrice: minPrice + *priceIncrement,
+				}).Do()
+				if err != nil {
+					time.Sleep(5 * time.Second)
+					if strings.Contains(err.Error(), "AWS.ECommerceService.NoExactMatches") {
+						fmt.Printf("Total Results: %d, Total Pages: %d\n\n", 0, 0)
+						break
+					}
+					printError(err)
+					continue
+				}
+
+				fmt.Printf("Total Results: %d, Total Pages: %d\n\n",
+					res.Items.TotalResults, res.Items.TotalPages)
+
+				for _, item := range res.Items.Item {
+					if exit {
+						break
+					}
+
+					currItem++
+
+					rec := newLegoItem(&item, bow)
+					w.Write(rec.Columns())
+					w.Flush()
+					printError(w.Error())
+				}
+
+				if res.Items.TotalPages > itemPage {
+					itemPage++
+				} else {
+					break
+				}
+			}
 		}
 	}
 
