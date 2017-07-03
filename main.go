@@ -43,7 +43,7 @@ func main() {
 
 	// for debugging...
 	// item := search(*accessKeyID, *secretAccessKey, *associateTag, *amazonRegion, *sleepDuration,
-	// 	"41101-1", "Heartlake Grand Hotel")
+	// "10242", "Mini Cooper")
 	// fmt.Printf("%#v", item)
 	// os.Exit(1)
 
@@ -132,34 +132,45 @@ func amzSearch(accessKeyID, secretAccessKey, associateTag, region string, sleep 
 
 func search(accessKeyID, secretAccessKey, associateTag, region string, sleep time.Duration, setNum, setName string) *amazon.Item {
 	setNum = strings.Replace(setNum, "-1", "", -1)
-	nameParts := strings.Split(setName, " ")
-	max := len(nameParts)
-	if max >= 3 {
-		max = 3
-	}
-	setName = strings.Join(nameParts[:max], " ")
-
 	keywords := fmt.Sprintf("LEGO %s", setNum)
 	items := amzSearch(accessKeyID, secretAccessKey, associateTag, region, sleep, keywords)
 	if items != nil {
 		log.Printf("Found %d results for `%s`", items.TotalResults, keywords)
-		for _, item := range items.Item {
-			if item.ItemAttributes.PartNumber == setNum && strings.Contains(item.ItemAttributes.Manufacturer, "LEGO") {
-				return &(items.Item[0])
+		var highScore, bestItem int
+		for pos, item := range items.Item {
+			score := matchScore(pos, setNum, setName, item.ItemAttributes)
+			log.Printf("Score of `%s`, `%s`, `%s` = %d", item.ASIN, item.ItemAttributes.PartNumber, item.ItemAttributes.Title, score)
+			if score > highScore {
+				highScore, bestItem = score, pos
 			}
 		}
-	}
-
-	keywords = fmt.Sprintf("LEGO %s %s", setNum, setName)
-	items = amzSearch(accessKeyID, secretAccessKey, associateTag, region, sleep, keywords)
-	if items != nil {
-		log.Printf("Found %d results for `%s`", items.TotalResults, keywords)
-		for _, item := range items.Item {
-			if item.ItemAttributes.PartNumber == setNum && strings.Contains(item.ItemAttributes.Manufacturer, "LEGO") {
-				return &(items.Item[0])
-			}
-		}
+		return &items.Item[bestItem]
 	}
 
 	return nil
+}
+
+func matchScore(pos int, num, title string, attr amazon.ItemAttributes) (score int) {
+	if attr.PartNumber == num {
+		score += 1000
+	}
+	if strings.Contains(attr.PartNumber, num) {
+		score += 1000
+	}
+	for _, cn := range attr.CatalogNumberList.Element {
+		if strings.Contains(cn, num) {
+			score += 1000
+			break
+		}
+	}
+	if strings.Contains(attr.Title, " "+num) {
+		score += 100
+	}
+	for _, s := range []string{attr.Label, attr.Manufacturer, attr.Publisher, attr.Studio, attr.Title} {
+		if strings.Contains(strings.ToUpper(s), "LEGO") {
+			score += 10
+		}
+	}
+	score += 500 / (pos + 1)
+	return
 }
