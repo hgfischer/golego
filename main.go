@@ -4,16 +4,14 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"strings"
-
 	"time"
-
-	"io"
 
 	"github.com/ngs/go-amazon-product-advertising-api/amazon"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -42,6 +40,12 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	ctx, cancel := context.WithCancel(context.Background())
 	exitCh := make(chan struct{})
+
+	// for debugging...
+	// item := search(*accessKeyID, *secretAccessKey, *associateTag, *amazonRegion, *sleepDuration,
+	// 	"41101-1", "Heartlake Grand Hotel")
+	// fmt.Printf("%#v", item)
+	// os.Exit(1)
 
 	go func(ctx context.Context) {
 		resp, err := http.Get("https://m.rebrickable.com/media/downloads/sets.csv")
@@ -135,18 +139,26 @@ func search(accessKeyID, secretAccessKey, associateTag, region string, sleep tim
 	}
 	setName = strings.Join(nameParts[:max], " ")
 
-	keywords := fmt.Sprintf("LEGO %s %s", setNum, setName)
+	keywords := fmt.Sprintf("LEGO %s", setNum)
 	items := amzSearch(accessKeyID, secretAccessKey, associateTag, region, sleep, keywords)
 	if items != nil {
 		log.Printf("Found %d results for `%s`", items.TotalResults, keywords)
-		return &(items.Item[0])
+		for _, item := range items.Item {
+			if item.ItemAttributes.PartNumber == setNum && strings.Contains(item.ItemAttributes.Manufacturer, "LEGO") {
+				return &(items.Item[0])
+			}
+		}
 	}
 
-	keywords = fmt.Sprintf("LEGO %s", setNum)
+	keywords = fmt.Sprintf("LEGO %s %s", setNum, setName)
 	items = amzSearch(accessKeyID, secretAccessKey, associateTag, region, sleep, keywords)
 	if items != nil {
 		log.Printf("Found %d results for `%s`", items.TotalResults, keywords)
-		return &(items.Item[0])
+		for _, item := range items.Item {
+			if item.ItemAttributes.PartNumber == setNum && strings.Contains(item.ItemAttributes.Manufacturer, "LEGO") {
+				return &(items.Item[0])
+			}
+		}
 	}
 
 	return nil
