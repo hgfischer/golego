@@ -82,7 +82,7 @@ func main() {
 				}
 			}
 		}
-
+		exitCh <- struct{}{}
 	}(ctx)
 
 	signalCh := make(chan os.Signal, 1)
