@@ -43,7 +43,7 @@ func main() {
 
 	// for debugging...
 	// item := search(*accessKeyID, *secretAccessKey, *associateTag, *amazonRegion, *sleepDuration,
-	// "10242", "Mini Cooper")
+	// "10216", "")
 	// fmt.Printf("%#v", item)
 	// os.Exit(1)
 
@@ -79,8 +79,10 @@ func main() {
 					if item != nil {
 						set.Fill(item)
 						sets[set.Num] = set
+						log.Println()
 						csvWriter.Write(set.Columns())
 						csvWriter.Flush()
+						log.Println()
 					}
 
 				}
@@ -153,24 +155,24 @@ func search(accessKeyID, secretAccessKey, associateTag, region string, sleep tim
 func matchScore(pos int, num, title string, attr amazon.ItemAttributes) (score int) {
 	if attr.PartNumber == num {
 		score += 1000
-	}
-	if strings.Contains(attr.PartNumber, num) {
-		score += 1000
-	}
-	for _, cn := range attr.CatalogNumberList.Element {
-		if strings.Contains(cn, num) {
-			score += 1000
-			break
+	} else if strings.Contains(attr.PartNumber, num) {
+		score += 800
+	} else {
+		for _, cn := range attr.CatalogNumberList.Element {
+			if strings.Contains(cn, num) {
+				score += 400
+				break
+			}
 		}
 	}
+	score += 500 / (pos + 1)
 	if strings.Contains(attr.Title, " "+num) {
 		score += 100
 	}
 	for _, s := range []string{attr.Label, attr.Manufacturer, attr.Publisher, attr.Studio, attr.Title} {
 		if strings.Contains(strings.ToUpper(s), "LEGO") {
-			score += 10
+			score += 15
 		}
 	}
-	score += 500 / (pos + 1)
 	return
 }
