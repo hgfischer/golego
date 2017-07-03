@@ -30,7 +30,7 @@ var (
 			string(amazon.RegionMexico), string(amazon.RegionUK), string(amazon.RegionUS))
 	minYear       = app.Flag("min-year", "Ignore sets older than this").Default("2007").Int()
 	minParts      = app.Flag("min-parts", "Ignore sets with less parts than this").Default("50").Int()
-	sleepDuration = app.Flag("sleep", "Time duration between API calls").Default("1s").Duration()
+	sleepDuration = app.Flag("sleep", "Time duration between API calls").Default("1.5s").Duration()
 	csvFile       = app.Arg("CSV", "Name of the CSV file to write").Required().OpenFile(
 		os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 )
