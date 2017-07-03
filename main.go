@@ -139,7 +139,7 @@ func search(accessKeyID, secretAccessKey, associateTag, region string, sleep tim
 		var highScore, bestItem int
 		for pos, item := range items.Item {
 			score := matchScore(pos, setNum, setName, item.ItemAttributes)
-			log.Printf("Score of `%s`, `%s`, `%s` = %d", item.ASIN, item.ItemAttributes.PartNumber, item.ItemAttributes.Title, score)
+			log.Printf("Score %4d for `%s`, `%s`, `%s`", score, item.ASIN, item.ItemAttributes.PartNumber, item.ItemAttributes.Title)
 			if score > highScore {
 				highScore, bestItem = score, pos
 			}
